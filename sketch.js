@@ -163,8 +163,8 @@ function drawPortal() {
 
 function spawnDebris() {
     let x = random(100, width - 100);
-    let mass = random(1, 5);
-    let size = mass * 15; // Increased size slightly for visibility
+    let mass = random(2, 6); // Slightly more mass for larger objects
+    let size = mass * 25; // Significant increase from mass * 15
     let body = Bodies.rectangle(x, -50, size, size, {
         restitution: 0.5,
         frictionAir: 0.02
