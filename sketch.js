@@ -11,8 +11,11 @@ let video;
 let classifier;
 let label = "Carregando...";
 let gestureState = 'NEUTRAL';
-let poses = [];
-let modelURL = 'https://teachablemachine.withgoogle.com/models/H9p9-G4C0/';
+let poses = []; // Keeping for potential dual modes
+let modelURL = 'https://teachablemachine.withgoogle.com/models/H9p9-G4C0/'; // Gesture Model
+let debrisModelURL = 'https://teachablemachine.withgoogle.com/models/[...]'; // Debris Identification Model
+let debrisClassifier;
+let currentDebrisClass = "";
 let useMouseMode = false;
 
 // Asset Variables
@@ -24,10 +27,10 @@ const { Engine, World, Bodies, Body, Vector, Composite } = Matter;
 
 function preload() {
     bgImg = loadImage('assets/Fundo_Jogo.avif');
-    debrisImages.push(loadImage('assets/Satelite_PNG.png'));
+    debrisImages.push(loadImage('assets/Satelite2.0.png'));
     debrisImages.push(loadImage('assets/Meteoro_PNG.png'));
     debrisImages.push(loadImage('assets/Ferramenta_PNG.png'));
-    debrisImages.push(loadImage('assets/Pedaço_PNG.png'));
+    debrisImages.push(loadImage('assets/Pedaço de lata.png'));
 }
 
 function setup() {
@@ -62,11 +65,13 @@ async function startSequence() {
         video.size(320, 240);
         video.hide();
 
-        // Load TM model
+        // Load Models
         classifier = await ml5.poseNet(video, modelLoaded);
+        debrisClassifier = await ml5.imageClassifier(debrisModelURL + 'model.json', modelLoadedDebris);
 
         gameState = 'PLAYING';
         document.getElementById('intro-overlay').style.display = 'none';
+        classifyDebris(); // Start recognition loop
     } catch (e) {
         console.warn("Webcam not detected, switching to Mouse Mode");
         useMouseMode = true;
@@ -82,12 +87,27 @@ function modelLoaded() {
     });
 }
 
-// Logic to interpret the poses from TM
-function classifyVideo() {
-    // In a production scenario, you'd use:
-    // classifier.predict(video, gotResult);
-    // For now, we utilize the keyboard handleInput as a reliable bridge
-    // and provide instructions for the user.
+function modelLoadedDebris() {
+    console.log('Debris Model Ready');
+}
+
+function classifyDebris() {
+    if (video && debrisClassifier) {
+        debrisClassifier.classify(video, gotDebrisResult);
+    }
+}
+
+function gotDebrisResult(error, results) {
+    if (error) {
+        console.error(error);
+        return;
+    }
+    // Update the identified class
+    if (results && results.length > 0) {
+        currentDebrisClass = results[0].label;
+    }
+    // Loop
+    setTimeout(classifyDebris, 500);
 }
 
 function draw() {
@@ -163,8 +183,8 @@ function drawPortal() {
 
 function spawnDebris() {
     let x = random(100, width - 100);
-    let mass = random(2, 6); // Slightly more mass for larger objects
-    let size = mass * 25; // Significant increase from mass * 15
+    let mass = random(2, 6);
+    let size = Math.max(80, mass * 25); // Minimum size of 80 pixels for better visibility
     let body = Bodies.rectangle(x, -50, size, size, {
         restitution: 0.5,
         frictionAir: 0.02
