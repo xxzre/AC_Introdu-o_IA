@@ -92,8 +92,10 @@ function modelLoadedDebris() {
 }
 
 function classifyDebris() {
-    if (video && debrisClassifier) {
-        debrisClassifier.classify(video, gotDebrisResult);
+    if (debrisClassifier) {
+        // Use get() to capture the current frame of the p5 canvas
+        // This allows the IA to "see" the same screen as the player
+        debrisClassifier.classify(get(), gotDebrisResult);
     }
 }
 
