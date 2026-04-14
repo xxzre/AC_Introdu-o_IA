@@ -4,56 +4,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orbital Balance | Experiência de Reciclagem Espacial</title>
-    <link rel="stylesheet" href="style.css">
+    <title>ORBITAL IA | Identificador de Detritos</title>
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 
-    <!-- Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
+    <!-- ml5.js library -->
     <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
 </head>
 
 <body>
-    <div id="game-container">
-        <!-- Intro Screen -->
-        <div id="intro-overlay">
-            <h1>Orbital Balance</h1>
-            <p>Use seu corpo para controlar a gravidade. Levante os braços para ativar a antigravidade e incline-se para
-                guiar os detritos até o portal de coleta.</p>
-            <button class="btn-start" id="start-btn">Iniciar Sequência</button>
-            <div id="loading-msg" class="loading" style="display: none;">Inicializando Sistemas de IA...</div>
-        </div>
+    <div id="loader" class="loading-screen">
+        <div class="loader"></div>
+        <p>Carregando Sistemas de IA...</p>
+    </div>
 
-        <!-- UI Overlay -->
-        <div id="ui-overlay">
-            <div class="glass-panel" id="status-panel">
-                <span class="label">Detritos Coletados</span>
-                <span class="value" id="score">0</span>
+    <div class="container">
+        <header>
+            <h1>Orbital Debris AI</h1>
+            <p>Sistema Inteligente de Classificação de sucata espacial via Teachable Machine.</p>
+        </header>
+
+        <main class="main-layout">
+            <div class="webcam-container">
+                <video id="video-element" autoplay playsinline></video>
+                <div class="overlay-info">
+                    <div class="status-indicator">
+                        <div id="status-dot" class="dot"></div>
+                        <span id="status-text">Status: Off</span>
+                    </div>
+                    <div style="font-size: 0.8rem; opacity: 0.5;">Analytic-X-2026</div>
+                </div>
             </div>
-            <div class="glass-panel">
-                <span class="label">Integridade do Setor</span>
-                <span class="value" id="integrity">100%</span>
+
+            <div class="sidebar">
+                <div class="panel">
+                    <span class="panel-title">Predição Atual</span>
+                    <h2 id="result-label">Aguardando...</h2>
+                    <div class="confidence-bar-container">
+                        <div id="confidence-bar"></div>
+                    </div>
+                    <span id="confidence-text">Confiança: 0%</span>
+                </div>
+
+                <div class="panel">
+                    <span class="panel-title">Como usar</span>
+                    <p style="font-size: 0.9rem; color: #aaa; margin-bottom: 20px;">
+                        Clique abaixo para iniciar a webcam e posicione o detrito espacial na frente da câmera para
+                        identificação imediata.
+                    </p>
+                    <button id="start-button">Iniciar Identificação</button>
+                    <p id="error-msg" style="color: #ff4444; font-size: 0.8rem; margin-top: 10px; display: none;">
+                        Erro: Webcam não encontrada.
+                    </p>
+                </div>
+
+                <div class="panel" style="padding: 15px;">
+                    <span class="panel-title" style="margin-bottom: 5px;">Classes Integradas</span>
+                    <ul id="class-list" style="font-size: 0.85rem; color: #888; list-style: none;">
+                        <li>• Satélite</li>
+                        <li>• Meteoro</li>
+                        <li>• Ferramenta</li>
+                        <li>• Pedaço de lata</li>
+                    </ul>
+                </div>
             </div>
-
-            <!-- NEW: Identification Monitor -->
-            <div class="glass-panel" id="debris-monitor" style="margin-top: 20px; border-color: var(--neon-purple);">
-                <span class="label">Monitor de Identificação</span>
-                <div id="identified-obj" class="value" style="font-size: 1.2rem; margin-top: 5px;">Aguardando...</div>
-            </div>
-        </div>
-
-        <!-- Silhouette Preview -->
-        <div class="glass-panel" id="preview-panel">
-            <span class="label">Monitor de Pose IA</span>
-            <div id="canvas-wrapper"></div>
-        </div>
-
-        <div class="glass-panel state-neutral" id="gesture-indicator">
-            Estado: Neutro
-        </div>
+        </main>
     </div>
 
     <script src="sketch.js"></script>
