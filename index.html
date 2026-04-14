@@ -28,15 +28,13 @@
         </header>
 
         <main class="main-layout">
-            <div class="webcam-container">
-                <video id="video-element" autoplay playsinline></video>
-                <div class="overlay-info">
-                    <div class="status-indicator">
-                        <div id="status-dot" class="dot"></div>
-                        <span id="status-text">Status: Off</span>
-                    </div>
-                    <div style="font-size: 0.8rem; opacity: 0.5;">Analytic-X-2026</div>
+            <div class="webcam-container" id="drop-zone">
+                <img id="image-preview" style="display: none; width: 100%; height: 100%; object-fit: contain;">
+                <div id="upload-prompt" style="text-align: center; padding: 20px;">
+                    <span style="font-size: 3rem; display: block; margin-bottom: 20px;">📁</span>
+                    <p>Arraste uma imagem ou clique para selecionar</p>
                 </div>
+                <input type="file" id="file-input" accept="image/*" style="display: none;">
             </div>
 
             <div class="sidebar">
@@ -52,12 +50,12 @@
                 <div class="panel">
                     <span class="panel-title">Como usar</span>
                     <p style="font-size: 0.9rem; color: #aaa; margin-bottom: 20px;">
-                        Clique abaixo para iniciar a webcam e posicione o detrito espacial na frente da câmera para
-                        identificação imediata.
+                        Selecione um arquivo de imagem do detrito espacial para análise instantânea pelo nosso
+                        algoritmo.
                     </p>
-                    <button id="start-button">Iniciar Identificação</button>
+                    <button id="upload-button">Selecionar Imagem</button>
                     <p id="error-msg" style="color: #ff4444; font-size: 0.8rem; margin-top: 10px; display: none;">
-                        Erro: Webcam não encontrada.
+                        Erro ao processar imagem.
                     </p>
                 </div>
 
