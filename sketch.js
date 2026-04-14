@@ -1,115 +1,264 @@
-// IA Image Upload Logic
-const fileInput = document.getElementById('file-input');
-const uploadBtn = document.getElementById('upload-button');
-const imagePreview = document.getElementById('image-preview');
-const uploadPrompt = document.getElementById('upload-prompt');
-const dropZone = document.getElementById('drop-zone');
+// Global Variables
+let engine, world;
+let debris = [];
+let portal;
+let score = 0;
+let integrity = 100;
+let gameState = 'INTRO'; // INTRO, LOADING, PLAYING
 
-const resultLabel = document.getElementById('result-label');
-const confidenceBar = document.getElementById('confidence-bar');
-const confidenceText = document.getElementById('confidence-text');
-const loader = document.getElementById('loader');
-const errorMsg = document.getElementById('error-msg');
-
+// IA Variables
+let video;
 let classifier;
-let isModelReady = false;
+let label = "Carregando...";
+let gestureState = 'NEUTRAL';
+let poses = [];
+let modelURL = 'https://teachablemachine.withgoogle.com/models/H9p9-G4C0/';
+let debrisModelURL = 'https://teachablemachine.withgoogle.com/models/vDY9Hja2j/';
+let debrisClassifier;
+let currentDebrisClass = "Buscando...";
+let useMouseMode = false;
 
-// The Teachable Machine Image Model URL
-const modelURL = 'https://teachablemachine.withgoogle.com/models/vDY9Hja2j/';
+// Asset Variables
+let bgImg;
+let debrisImages = [];
 
-// 1. Initialize logic
-window.onload = () => {
-    loadModel();
-};
+// Matter.js Aliases
+const { Engine, World, Bodies, Body, Vector, Composite } = Matter;
 
-// 2. Load the Teachable Machine Model
-async function loadModel() {
+function preload() {
+    bgImg = loadImage('assets/Fundo_Jogo.avif');
+    debrisImages.push(loadImage('assets/Satelite2.0.png'));
+    debrisImages.push(loadImage('assets/Meteoro_PNG.png'));
+    debrisImages.push(loadImage('assets/Ferramenta_PNG.png'));
+    debrisImages.push(loadImage('assets/Pedaço de lata png.png'));
+}
+
+function setup() {
+    let canvas = createCanvas(800, 600);
+    canvas.parent('game-container');
+
+    // Physics Setup
+    engine = Engine.create();
+    world = engine.world;
+    world.gravity.y = 1;
+
+    // Portal setup (Top of screen)
+    portal = {
+        x: width / 2,
+        y: 40,
+        radius: 60
+    };
+
+    // UI Listeners
+    document.getElementById('start-btn').addEventListener('click', startSequence);
+}
+
+async function startSequence() {
+    gameState = 'LOADING';
+    document.getElementById('loading-msg').style.display = 'block';
+
     try {
-        console.log("Carregando modelo...");
-        classifier = await ml5.imageClassifier(modelURL + 'model.json');
-        isModelReady = true;
-        loader.style.display = 'none';
-        console.log("Modelo carregado com sucesso!");
-    } catch (error) {
-        console.error("Erro ao carregar o modelo:", error);
-        loader.querySelector('p').innerText = "Erro ao carregar arquivos da IA.";
-        loader.querySelector('.loader').style.borderTopColor = "#ff4444";
+        // Setup Video
+        video = createCapture(VIDEO, (stream) => {
+            useMouseMode = false;
+        });
+        video.size(320, 240);
+        video.hide();
+
+        // Load Pose Model
+        classifier = await ml5.poseNet(video, modelLoaded);
+    } catch (e) {
+        console.warn("Webcam not detected, switching to Mouse Mode");
+        useMouseMode = true;
+    }
+
+    // Load Debris Model
+    try {
+        debrisClassifier = await ml5.imageClassifier(debrisModelURL + 'model.json', () => {
+            console.log('Debris Model Loaded Successfully');
+            classifyDebris();
+        });
+    } catch (e) {
+        console.error("Erro ao carregar modelo de detritos:", e);
+    }
+
+    gameState = 'PLAYING';
+    document.getElementById('intro-overlay').style.display = 'none';
+}
+
+function modelLoaded() {
+    console.log('Model Ready');
+    classifier.on('pose', (results) => {
+        poses = results;
+    });
+}
+
+function classifyDebris() {
+    if (debrisClassifier && gameState === 'PLAYING') {
+        let canvasElement = document.querySelector('canvas');
+        if (canvasElement) {
+            debrisClassifier.classify(canvasElement, gotDebrisResult);
+        } else {
+            debrisClassifier.classify(get(), gotDebrisResult);
+        }
+    } else {
+        setTimeout(classifyDebris, 1000);
     }
 }
 
-// 3. Handle File Selection
-uploadBtn.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('click', () => fileInput.click());
-
-fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) handleFile(file);
-});
-
-// Drag and drop logic
-dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.style.borderColor = "#bc13fe";
-});
-
-dropZone.addEventListener('dragleave', () => {
-    dropZone.style.borderColor = "rgba(0, 242, 255, 0.3)";
-});
-
-dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.style.borderColor = "rgba(0, 242, 255, 0.3)";
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-});
-
-function handleFile(file) {
-    if (!file.type.startsWith('image/')) {
-        alert("Por favor, selecione um arquivo de imagem.");
+function gotDebrisResult(error, results) {
+    if (error) {
+        console.error(error);
         return;
     }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        imagePreview.src = e.target.result;
-        imagePreview.style.display = 'block';
-        uploadPrompt.style.display = 'none';
-
-        // When image is loaded, classify it
-        imagePreview.onload = () => classify();
-    };
-    reader.readAsDataURL(file);
+    if (results && results.length > 0) {
+        currentDebrisClass = results[0].label;
+        let mon = document.getElementById('identified-obj');
+        if (mon) mon.innerText = currentDebrisClass;
+    }
+    setTimeout(classifyDebris, 500);
 }
 
-// 4. Run the Classifier
-async function classify() {
-    if (!isModelReady) return;
+function draw() {
+    if (bgImg) {
+        image(bgImg, 0, 0, width, height);
+    } else {
+        background(10, 10, 18);
+    }
 
-    try {
-        const results = await classifier.classify(imagePreview);
-        displayResults(results);
-    } catch (error) {
-        console.error("Erro na predição:", error);
-        errorMsg.style.display = 'block';
+    if (gameState === 'PLAYING') {
+        Engine.update(engine);
+        drawPortal();
+        handleInput();
+
+        if (frameCount % 120 === 0) {
+            spawnDebris();
+        }
+
+        for (let i = debris.length - 1; i >= 0; i--) {
+            let item = debris[i];
+            let d = dist(item.body.position.x, item.body.position.y, portal.x, portal.y);
+            if (d < portal.radius) {
+                World.remove(world, item.body);
+                debris.splice(i, 1);
+                score += 10;
+                updateUI();
+                continue;
+            }
+
+            if (item.body.position.y > height + 50) {
+                World.remove(world, item.body);
+                debris.splice(i, 1);
+                integrity -= 5;
+                updateUI();
+                continue;
+            }
+
+            applyForces(item);
+            drawDebris(item);
+        }
     }
 }
 
-// 5. Update the UI
-function displayResults(results) {
-    if (results && results.length > 0) {
-        const topResult = results[0];
-        const label = topResult.label;
-        const confidence = (topResult.confidence * 100).toFixed(1);
+function drawPortal() {
+    push();
+    noFill();
+    strokeWeight(4);
+    let pulse = sin(frameCount * 0.1) * 10;
+    stroke(0, 242, 255, 150 + pulse * 10);
+    ellipse(portal.x, portal.y, portal.radius * 2 + pulse);
+    stroke(188, 19, 254, 100);
+    ellipse(portal.x, portal.y, portal.radius * 1.5 - pulse);
+    pop();
+}
 
-        resultLabel.innerText = label;
-        confidenceText.innerText = `Confiança: ${confidence}%`;
-        confidenceBar.style.width = `${confidence}%`;
+function spawnDebris() {
+    let x = random(100, width - 100);
+    let mass = random(2, 6);
+    let size = Math.max(80, mass * 25);
+    let body = Bodies.rectangle(x, -50, size, size, {
+        restitution: 0.5,
+        frictionAir: 0.02
+    });
+    World.add(world, body);
+    let type = floor(random(debrisImages.length));
+    debris.push({ body, mass, size, type });
+}
 
-        // Highlight high confidence
-        if (confidence > 80) {
-            resultLabel.style.color = "#00f2ff";
-        } else {
-            resultLabel.style.color = "#fff";
+function drawDebris(item) {
+    let pos = item.body.position;
+    let angle = item.body.angle;
+    push();
+    translate(pos.x, pos.y);
+    rotate(angle);
+    let img = debrisImages[item.type];
+    if (img) {
+        if (gestureState === 'ANTIGRAVITY') {
+            drawingContext.shadowBlur = 30;
+            drawingContext.shadowColor = 'rgba(188, 19, 254, 1)';
+            tint(200, 150, 255);
         }
+        imageMode(CENTER);
+        image(img, 0, 0, item.size, item.size);
+        noTint();
+        drawingContext.shadowBlur = 0;
+    }
+    pop();
+}
+
+function handleInput() {
+    if (!useMouseMode && poses.length > 0) {
+        let pose = poses[0].pose;
+        if (pose.leftWrist.y < pose.leftShoulder.y - 50 && pose.rightWrist.y < pose.rightShoulder.y - 50) {
+            gestureState = 'ANTIGRAVITY';
+        } else if (pose.nose.x < 120) {
+            gestureState = 'RIGHT';
+        } else if (pose.nose.x > 200) {
+            gestureState = 'LEFT';
+        } else {
+            gestureState = 'NEUTRAL';
+        }
+    } else {
+        if ((keyIsPressed && key === ' ') || mouseIsPressed) {
+            gestureState = 'ANTIGRAVITY';
+        } else if (mouseX < width * 0.3 && mouseX > 0) {
+            gestureState = 'LEFT';
+        } else if (mouseX > width * 0.7 && mouseX < width) {
+            gestureState = 'RIGHT';
+        } else {
+            gestureState = 'NEUTRAL';
+        }
+    }
+
+    if (keyIsDown(UP_ARROW)) gestureState = 'ANTIGRAVITY';
+    if (keyIsDown(LEFT_ARROW)) gestureState = 'LEFT';
+    if (keyIsDown(RIGHT_ARROW)) gestureState = 'RIGHT';
+
+    let indicator = document.getElementById('gesture-indicator');
+    if (indicator) {
+        let msg = `Estado: ${gestureState === 'NEUTRAL' ? 'Neutro' : (gestureState === 'ANTIGRAVITY' ? 'Antigravidade' : 'Empuxo Lateral')}`;
+        if (useMouseMode) msg += " (Modo Mouse)";
+        msg += ` | IA Identificou: ${currentDebrisClass}`;
+        indicator.className = 'glass-panel state-' + gestureState.toLowerCase();
+        indicator.innerText = msg;
+    }
+}
+
+function applyForces(item) {
+    if (gestureState === 'ANTIGRAVITY') {
+        Body.applyForce(item.body, item.body.position, { x: 0, y: -0.005 * item.mass });
+    } else if (gestureState === 'LEFT') {
+        Body.applyForce(item.body, item.body.position, { x: -0.002 * item.mass, y: -0.002 * item.mass });
+    } else if (gestureState === 'RIGHT') {
+        Body.applyForce(item.body, item.body.position, { x: 0.002 * item.mass, y: -0.002 * item.mass });
+    }
+}
+
+function updateUI() {
+    document.getElementById('score').innerText = score;
+    document.getElementById('integrity').innerText = integrity + '%';
+    if (integrity <= 0) {
+        alert("Setor Crítico! A estação foi sobrecarregada por detritos.");
+        location.reload();
     }
 }
