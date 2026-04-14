@@ -12,10 +12,10 @@ let classifier;
 let label = "Carregando...";
 let gestureState = 'NEUTRAL';
 let poses = []; // Keeping for potential dual modes
-let modelURL = 'https://teachablemachine.withgoogle.com/models/H9p9-G4C0/'; // Gesture Model
-let debrisModelURL = 'https://teachablemachine.withgoogle.com/models/[...]'; // Debris Identification Model
+let modelURL = 'https://teachablemachine.withgoogle.com/models/H9p9-G4C0/';
+let debrisModelURL = 'https://teachablemachine.withgoogle.com/models/vB3u-zQxU/'; // URL update for classification
 let debrisClassifier;
-let currentDebrisClass = "";
+let currentDebrisClass = "Buscando...";
 let useMouseMode = false;
 
 // Asset Variables
@@ -30,7 +30,7 @@ function preload() {
     debrisImages.push(loadImage('assets/Satelite2.0.png'));
     debrisImages.push(loadImage('assets/Meteoro_PNG.png'));
     debrisImages.push(loadImage('assets/Ferramenta_PNG.png'));
-    debrisImages.push(loadImage('assets/Pedaço de lata.png'));
+    debrisImages.push(loadImage('assets/Pedaço de lata png.png'));
 }
 
 function setup() {
@@ -268,7 +268,11 @@ function handleInput() {
     let indicator = document.getElementById('gesture-indicator');
     if (indicator) {
         let msg = `Estado: ${gestureState === 'NEUTRAL' ? 'Neutro' : (gestureState === 'ANTIGRAVITY' ? 'Antigravidade' : 'Empuxo Lateral')}`;
-        if (useMouseMode || poses.length === 0) msg += " (Modo Mouse)";
+        if (useMouseMode) msg += " (Modo Mouse)";
+
+        // ADDED: Display the identified debris class from the classification model
+        msg += ` | IA Identificou: ${currentDebrisClass}`;
+
         indicator.className = 'glass-panel state-' + gestureState.toLowerCase();
         indicator.innerText = msg;
     }
