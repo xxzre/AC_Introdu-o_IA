@@ -13,7 +13,7 @@ let label = "Carregando...";
 let gestureState = 'NEUTRAL';
 let poses = []; // Keeping for potential dual modes
 let modelURL = 'https://teachablemachine.withgoogle.com/models/H9p9-G4C0/';
-let debrisModelURL = 'https://teachablemachine.withgoogle.com/models/vB3u-zQxU/'; // URL update for classification
+let debrisModelURL = 'https://teachablemachine.withgoogle.com/models/vDY9Hja2j/'; // Updated model URL
 let debrisClassifier;
 let currentDebrisClass = "Buscando...";
 let useMouseMode = false;
@@ -105,6 +105,8 @@ function gotDebrisResult(error, results) {
     // Update the identified class
     if (results && results.length > 0) {
         currentDebrisClass = results[0].label;
+        let mon = document.getElementById('identified-obj');
+        if (mon) mon.innerText = currentDebrisClass;
     }
     // Loop
     setTimeout(classifyDebris, 500);
