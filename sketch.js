@@ -13,9 +13,22 @@ let label = "Carregando...";
 let gestureState = 'NEUTRAL';
 let poses = [];
 let modelURL = 'https://teachablemachine.withgoogle.com/models/H9p9-G4C0/';
+let useMouseMode = false;
+
+// Asset Variables
+let bgImg;
+let debrisImages = [];
 
 // Matter.js Aliases
 const { Engine, World, Bodies, Body, Vector, Composite } = Matter;
+
+function preload() {
+    bgImg = loadImage('assets/Fundo_Jogo.avif');
+    debrisImages.push(loadImage('assets/Satelite_PNG.png'));
+    debrisImages.push(loadImage('assets/Meteoro_PNG.png'));
+    debrisImages.push(loadImage('assets/Ferramenta_PNG.png'));
+    debrisImages.push(loadImage('assets/Pedaço_PNG.png'));
+}
 
 function setup() {
     let canvas = createCanvas(800, 600);
@@ -43,24 +56,20 @@ async function startSequence() {
 
     try {
         // Setup Video
-        video = createCapture(VIDEO);
+        video = createCapture(VIDEO, (stream) => {
+            useMouseMode = false;
+        });
         video.size(320, 240);
         video.hide();
 
         // Load TM model
-        const checkpointURL = modelURL + "model.json";
-        const metadataURL = modelURL + "metadata.json";
         classifier = await ml5.poseNet(video, modelLoaded);
-
-        // Actually for Teachable Machine with Pose, we use the specific library
-        // But for this example we'll focus on the logic flow
 
         gameState = 'PLAYING';
         document.getElementById('intro-overlay').style.display = 'none';
-        classifyVideo();
     } catch (e) {
-        console.error("Erro ao iniciar IA", e);
-        // Fallback for demo
+        console.warn("Webcam not detected, switching to Mouse Mode");
+        useMouseMode = true;
         gameState = 'PLAYING';
         document.getElementById('intro-overlay').style.display = 'none';
     }
@@ -82,7 +91,12 @@ function classifyVideo() {
 }
 
 function draw() {
-    background(10, 10, 18);
+    // Draw Background
+    if (bgImg) {
+        image(bgImg, 0, 0, width, height);
+    } else {
+        background(10, 10, 18);
+    }
 
     if (gameState === 'PLAYING') {
         Engine.update(engine);
@@ -150,13 +164,14 @@ function drawPortal() {
 function spawnDebris() {
     let x = random(100, width - 100);
     let mass = random(1, 5);
-    let size = mass * 10;
+    let size = mass * 15; // Increased size slightly for visibility
     let body = Bodies.rectangle(x, -50, size, size, {
         restitution: 0.5,
         frictionAir: 0.02
     });
     World.add(world, body);
-    debris.push({ body, mass, size, type: floor(random(4)) });
+    let type = floor(random(debrisImages.length));
+    debris.push({ body, mass, size, type });
 }
 
 function drawDebris(item) {
@@ -167,61 +182,75 @@ function drawDebris(item) {
     translate(pos.x, pos.y);
     rotate(angle);
 
-    // Visual style
-    if (gestureState === 'ANTIGRAVITY') {
-        stroke(188, 19, 254);
-        strokeWeight(2);
-        drawingContext.shadowBlur = 15;
-        drawingContext.shadowColor = 'rgba(188, 19, 254, 0.8)';
+    // Visual style: Image-based Debris
+    let img = debrisImages[item.type];
+    if (img) {
+        // Antigravity Glow Effect
+        if (gestureState === 'ANTIGRAVITY') {
+            drawingContext.shadowBlur = 20;
+            drawingContext.shadowColor = 'rgba(188, 19, 254, 0.9)';
+            tint(255, 200, 255); // Slight purple tint
+        }
+
+        imageMode(CENTER);
+        image(img, 0, 0, item.size, item.size);
+
+        noTint();
+        drawingContext.shadowBlur = 0;
     } else {
-        stroke(255, 50);
-        strokeWeight(1);
+        // Fallback drawing if image fails
+        fill(40, 40, 60);
+        rectMode(CENTER);
+        rect(0, 0, item.size, item.size);
     }
-
-    fill(40, 40, 60);
-    rectMode(CENTER);
-    rect(0, 0, item.size, item.size);
-
-    // Add some "tech" details
-    fill(0, 242, 255, 100);
-    noStroke();
-    rect(0, 0, item.size * 0.4, item.size * 0.4);
 
     pop();
 }
 
 function handleInput() {
-    // IA Pose Analysis
-    if (poses.length > 0) {
+    // 1. IA Pose Analysis (Priority if active)
+    if (!useMouseMode && poses.length > 0) {
         let pose = poses[0].pose;
-
-        // Detection logic:
-        // Antigravity: Hands significantly above shoulders
         if (pose.leftWrist.y < pose.leftShoulder.y - 50 && pose.rightWrist.y < pose.rightShoulder.y - 50) {
             gestureState = 'ANTIGRAVITY';
-        }
-        // Lateral: Lean based on shoulders position relative to center
-        else if (pose.nose.x < 120) {
-            gestureState = 'RIGHT'; // Mirroring
-        }
-        else if (pose.nose.x > 200) {
+        } else if (pose.nose.x < 120) {
+            gestureState = 'RIGHT';
+        } else if (pose.nose.x > 200) {
             gestureState = 'LEFT';
+        } else {
+            gestureState = 'NEUTRAL';
+        }
+    }
+    // 2. Mouse/Keyboard Simulation Mode (When no webcam or as override)
+    else {
+        // Space or Click for Antigravity
+        if ((keyIsPressed && key === ' ') || mouseIsPressed) {
+            gestureState = 'ANTIGRAVITY';
+        }
+        // Mouse X position for Lateral thrust
+        else if (mouseX < width * 0.3 && mouseX > 0) {
+            gestureState = 'LEFT';
+        }
+        else if (mouseX > width * 0.7 && mouseX < width) {
+            gestureState = 'RIGHT';
         }
         else {
             gestureState = 'NEUTRAL';
         }
     }
 
-    // FALLBACK KEYBOARD FOR DEV/TESTING (Overrides IA for testing)
+    // Manual overrides (always available)
     if (keyIsDown(UP_ARROW)) gestureState = 'ANTIGRAVITY';
-    else if (keyIsDown(LEFT_ARROW)) gestureState = 'LEFT';
-    else if (keyIsDown(RIGHT_ARROW)) gestureState = 'RIGHT';
+    if (keyIsDown(LEFT_ARROW)) gestureState = 'LEFT';
+    if (keyIsDown(RIGHT_ARROW)) gestureState = 'RIGHT';
 
     // Update UI indicator
     let indicator = document.getElementById('gesture-indicator');
     if (indicator) {
+        let msg = `Estado: ${gestureState === 'NEUTRAL' ? 'Neutro' : (gestureState === 'ANTIGRAVITY' ? 'Antigravidade' : 'Empuxo Lateral')}`;
+        if (useMouseMode || poses.length === 0) msg += " (Modo Mouse)";
         indicator.className = 'glass-panel state-' + gestureState.toLowerCase();
-        indicator.innerText = `Estado: ${gestureState === 'NEUTRAL' ? 'Neutro' : (gestureState === 'ANTIGRAVITY' ? 'Antigravidade' : 'Empuxo Lateral')}`;
+        indicator.innerText = msg;
     }
 }
 
