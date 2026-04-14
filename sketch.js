@@ -65,19 +65,23 @@ async function startSequence() {
         video.size(320, 240);
         video.hide();
 
-        // Load Models
+        // Load Pose Model (Only if webcam works)
         classifier = await ml5.poseNet(video, modelLoaded);
-        debrisClassifier = await ml5.imageClassifier(debrisModelURL + 'model.json', modelLoadedDebris);
-
-        gameState = 'PLAYING';
-        document.getElementById('intro-overlay').style.display = 'none';
-        classifyDebris(); // Start recognition loop
     } catch (e) {
         console.warn("Webcam not detected, switching to Mouse Mode");
         useMouseMode = true;
-        gameState = 'PLAYING';
-        document.getElementById('intro-overlay').style.display = 'none';
     }
+
+    // Load Debris Model (Always, because it reads the canvas)
+    try {
+        debrisClassifier = await ml5.imageClassifier(debrisModelURL + 'model.json', modelLoadedDebris);
+    } catch (e) {
+        console.error("Erro ao carregar modelo de detritos:", e);
+    }
+
+    gameState = 'PLAYING';
+    document.getElementById('intro-overlay').style.display = 'none';
+    classifyDebris(); // Start recognition loop
 }
 
 function modelLoaded() {
