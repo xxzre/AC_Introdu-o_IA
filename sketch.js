@@ -96,10 +96,18 @@ function modelLoadedDebris() {
 }
 
 function classifyDebris() {
-    if (debrisClassifier) {
-        // Use get() to capture the current frame of the p5 canvas
-        // This allows the IA to "see" the same screen as the player
-        debrisClassifier.classify(get(), gotDebrisResult);
+    if (debrisClassifier && gameState === 'PLAYING') {
+        // Capture the canvas element specifically
+        let canvasElement = document.querySelector('canvas');
+        if (canvasElement) {
+            debrisClassifier.classify(canvasElement, gotDebrisResult);
+        } else {
+            // Fallback to p5 get() if canvas not found
+            debrisClassifier.classify(get(), gotDebrisResult);
+        }
+    } else {
+        // If not ready, try again shortly
+        setTimeout(classifyDebris, 1000);
     }
 }
 
