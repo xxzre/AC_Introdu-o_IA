@@ -169,7 +169,8 @@ p {
     }
 }
 
-#start-button {
+#start-button,
+#upload-button {
     background: linear-gradient(45deg, #00f2ff, #bc13fe);
     border: none;
     color: white;
@@ -183,7 +184,8 @@ p {
     margin-top: 10px;
 }
 
-#start-button:hover {
+#start-button:hover,
+#upload-button:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(188, 19, 254, 0.3);
 }
