@@ -26,11 +26,25 @@ let debrisImages = [];
 const { Engine, World, Bodies, Body, Vector, Composite } = Matter;
 
 function preload() {
-    bgImg = loadImage('assets/Fundo_Jogo.avif');
-    debrisImages.push(loadImage('assets/Satelite2.0.png'));
-    debrisImages.push(loadImage('assets/Meteoro_PNG.png'));
-    debrisImages.push(loadImage('assets/Ferramenta_PNG.png'));
-    debrisImages.push(loadImage('assets/Pedaço de lata png.png'));
+    // Add success/error callbacks to prevent the game from freezing if an image fails to load
+    bgImg = loadImage('assets/Fundo_Jogo.avif',
+        () => console.log('Background loaded'),
+        () => console.warn('Background failed to load, using fallback color')
+    );
+
+    const assets = [
+        'assets/Satelite2.0.png',
+        'assets/Meteoro_PNG.png',
+        'assets/Ferramenta_PNG.png',
+        'assets/Pedaço de lata png.png'
+    ];
+
+    assets.forEach(path => {
+        debrisImages.push(loadImage(path,
+            () => console.log(`Loaded: ${path}`),
+            () => console.error(`Failed to load: ${path}`)
+        ));
+    });
 }
 
 function setup() {
@@ -149,7 +163,7 @@ function draw() {
             if (item.body.position.y > height + 50) {
                 World.remove(world, item.body);
                 debris.splice(i, 1);
-                integrity -= 5;
+                integrity -= 10; // Increased damage from 5 to 10
                 updateUI();
                 continue;
             }
@@ -174,8 +188,8 @@ function drawPortal() {
 
 function spawnDebris() {
     let x = random(100, width - 100);
-    let mass = random(2, 6);
-    let size = Math.max(80, mass * 25);
+    let mass = random(3, 8); // Increased mass range
+    let size = Math.max(100, mass * 30); // Increased minimum size and multiplier
     let body = Bodies.rectangle(x, -50, size, size, {
         restitution: 0.5,
         frictionAir: 0.02
@@ -257,7 +271,7 @@ function applyForces(item) {
 function updateUI() {
     document.getElementById('score').innerText = score;
     document.getElementById('integrity').innerText = integrity + '%';
-    if (integrity <= 0) {
+    if (integrity <= 0 && gameState === 'PLAYING') {
         alert("Setor Crítico! A estação foi sobrecarregada por detritos.");
         location.reload();
     }
